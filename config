@@ -1,5 +1,6 @@
 *.example.com {
 	tls {
+		key_type rsa2048 # my test instance refuses to work otherwise
 		issuer certsrv {
 				certsrv_url  http://example.com
 				realm        EXAMPLE.COM

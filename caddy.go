@@ -17,14 +17,12 @@ package certsrv
 import (
 	"context"
 	"crypto/x509"
-	"time"
 
 	"github.com/caddyserver/certmagic"
 	"go.uber.org/zap"
+	"gopkg.in/jcmturner/gokrb5.v7/spnego"
 
 	"github.com/caddyserver/caddy/v2"
-	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
-	"github.com/caddyserver/caddy/v2/modules/caddypki"
 )
 
 func init() {
@@ -35,21 +33,12 @@ func init() {
 // certificates internally using a locally-configured
 // CA which can be customized using the `pki` app.
 type CertSrvIssuer struct {
-	// The ID of the CA to use for signing. The default
-	// CA ID is "local". The CA can be configured with the
-	// `pki` app.
-	CA string `json:"ca,omitempty"`
+	CertSrvUrl string `json:"certsrv_url"`
+	Realm      string `json:"realm"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
 
-	// The validity period of certificates.
-	Lifetime caddy.Duration `json:"lifetime,omitempty"`
-
-	// If true, the root will be the issuer instead of
-	// the intermediate. This is NOT recommended and should
-	// only be used when devices/clients do not properly
-	// validate certificate chains.
-	SignWithRoot bool `json:"sign_with_root,omitempty"`
-
-	ca     *caddypki.CA
+	cl     *spnego.Client
 	logger *zap.Logger
 }
 
@@ -64,28 +53,7 @@ func (CertSrvIssuer) CaddyModule() caddy.ModuleInfo {
 // Provision sets up the issuer.
 func (iss *CertSrvIssuer) Provision(ctx caddy.Context) error {
 	iss.logger = ctx.Logger()
-
-	// set some defaults
-	if iss.CA == "" {
-		iss.CA = caddypki.DefaultCAID
-	}
-
-	// get a reference to the configured CA
-	appModule, err := ctx.App("pki")
-	if err != nil {
-		return err
-	}
-	pkiApp := appModule.(*caddypki.PKI)
-	ca, err := pkiApp.GetCA(ctx, iss.CA)
-	if err != nil {
-		return err
-	}
-	iss.ca = ca
-
-	// set any other default values
-	if iss.Lifetime == 0 {
-		iss.Lifetime = caddy.Duration(defaultInternalCertLifetime)
-	}
+	iss.cl = MakeClient(iss.CertSrvUrl, iss.Username, iss.Password, iss.Realm)
 
 	return nil
 }
@@ -93,58 +61,19 @@ func (iss *CertSrvIssuer) Provision(ctx caddy.Context) error {
 // IssuerKey returns the unique issuer key for the
 // confgured CA endpoint.
 func (iss CertSrvIssuer) IssuerKey() string {
-	return iss.ca.ID
+	return "totally a unique key"
 }
 
 // Issue issues a certificate to satisfy the CSR.
 func (iss CertSrvIssuer) Issue(ctx context.Context, csr *x509.CertificateRequest) (*certmagic.IssuedCertificate, error) {
-	return nil, nil
-	/*
-		return &certmagic.IssuedCertificate{
-			Certificate: buf.Bytes(),
-		}, nil
-	*/
+	// TODO: honor cancellation in MakeCert etc
+	cert := MakeCert(iss.cl, iss.CertSrvUrl, csr)
+
+	return &certmagic.IssuedCertificate{
+		// The PEM-encoding of DER-encoded ASN.1 data.
+		Certificate: []byte(cert),
+	}, nil
 }
-
-// UnmarshalCaddyfile deserializes Caddyfile tokens into iss.
-//
-//	... internal {
-//	    ca       <name>
-//	    lifetime <duration>
-//	    sign_with_root
-//	}
-func (iss *CertSrvIssuer) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
-	for d.Next() {
-		for d.NextBlock(0) {
-			switch d.Val() {
-			case "ca":
-				if !d.AllArgs(&iss.CA) {
-					return d.ArgErr()
-				}
-
-			case "lifetime":
-				if !d.NextArg() {
-					return d.ArgErr()
-				}
-				dur, err := caddy.ParseDuration(d.Val())
-				if err != nil {
-					return err
-				}
-				iss.Lifetime = caddy.Duration(dur)
-
-			case "sign_with_root":
-				if d.NextArg() {
-					return d.ArgErr()
-				}
-				iss.SignWithRoot = true
-
-			}
-		}
-	}
-	return nil
-}
-
-const defaultInternalCertLifetime = 12 * time.Hour
 
 // Interface guards
 var (

@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func ParseHTMLResponse(response io.Reader) (string, error) {
+func parseHTMLResponse(response io.Reader) (string, error) {
 	tokenizer := html.NewTokenizer(response)
 	for {
 		tt := tokenizer.Next()

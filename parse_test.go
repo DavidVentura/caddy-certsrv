@@ -10,7 +10,7 @@ func TestParseHTMLResponse(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	link, err := ParseHTMLResponse(data)
+	link, err := parseHTMLResponse(data)
 	if err != nil {
 		panic(err)
 	}

@@ -1,0 +1,10 @@
+*.example.com {
+	tls {
+		issuer certsrv {
+				certsrv_url  http://example.com
+				realm        EXAMPLE.COM
+				username     user
+				password     password
+		}
+	}
+}

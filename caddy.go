@@ -25,6 +25,7 @@ import (
 	"gopkg.in/jcmturner/gokrb5.v7/spnego"
 
 	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 )
 
 func init() {
@@ -85,6 +86,35 @@ func (iss CertSrvIssuer) Issue(ctx context.Context, csr *x509.CertificateRequest
 		// The PEM-encoding of DER-encoded ASN.1 data.
 		Certificate: []byte(cert),
 	}, nil
+}
+func (iss *CertSrvIssuer) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	for d.Next() {
+		for d.NextBlock(0) {
+			switch d.Val() {
+			case "certsrv_url":
+				if !d.NextArg() {
+					return d.ArgErr()
+				}
+				iss.CertSrvUrl = d.Val()
+			case "realm":
+				if !d.NextArg() {
+					return d.ArgErr()
+				}
+				iss.Realm = d.Val()
+			case "username":
+				if !d.NextArg() {
+					return d.ArgErr()
+				}
+				iss.Username = d.Val()
+			case "password":
+				if !d.NextArg() {
+					return d.ArgErr()
+				}
+				iss.Password = d.Val()
+			}
+		}
+	}
+	return nil
 }
 
 // Interface guards

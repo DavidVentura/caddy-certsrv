@@ -5,21 +5,17 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 
 	"gopkg.in/jcmturner/gokrb5.v7/spnego"
 )
 
+// FIXME: These request should support a ctx
+
 // Returns a PEM-encoded ceritifcate
 func fetchCert(cl *spnego.Client, certSrvUrl string, certUrl string) string {
 	url := fmt.Sprintf("%s/%s", certSrvUrl, certUrl)
-	fmt.Println(url)
-	r, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		panic(err)
-	}
-	resp, err := cl.Do(r)
+	resp, err := cl.Get(url)
 	if err != nil {
 		panic(err)
 	}
@@ -28,8 +24,8 @@ func fetchCert(cl *spnego.Client, certSrvUrl string, certUrl string) string {
 	return string(cert)
 }
 
+// Returns a PEM-encoded ceritifcate
 func MakeCert(cl *spnego.Client, certSrvUrl string, csr *x509.CertificateRequest) string {
-	// FIXME raw?
 	req := pem.EncodeToMemory(&pem.Block{
 		Type: "CERTIFICATE REQUEST", Bytes: csr.Raw,
 	})

@@ -2,7 +2,6 @@ package certsrv
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 
@@ -14,7 +13,6 @@ func parseHTMLResponse(response io.Reader) (string, error) {
 	for {
 		tt := tokenizer.Next()
 		if tt == html.ErrorToken {
-			fmt.Println("End")
 			break
 		}
 		tag, hasAttr := tokenizer.TagName()

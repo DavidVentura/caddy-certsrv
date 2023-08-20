@@ -22,6 +22,7 @@ import (
 
 	"github.com/caddyserver/certmagic"
 	"go.uber.org/zap"
+	"gopkg.in/jcmturner/gokrb5.v7/keytab"
 	"gopkg.in/jcmturner/gokrb5.v7/spnego"
 
 	"github.com/caddyserver/caddy/v2"
@@ -32,15 +33,16 @@ func init() {
 	caddy.RegisterModule(CertSrvIssuer{})
 }
 
-// CertSrvIssuer is a certificate issuer that generates
-// certificates internally using a locally-configured
-// CA which can be customized using the `pki` app.
+// CertSrvIssuer can request certificates from a
+// Microsoft Active Directory Certificate Services instance
 type CertSrvIssuer struct {
 	CertSrvUrl string `json:"certsrv_url"`
 	Realm      string `json:"realm"`
 	Username   string `json:"username"`
-	Password   string `json:"password"`
+	Password   string `json:"password,omitempty_empty"`
+	KeytabFile string `json:"keytab_path,omitempty_empty"`
 
+	keytab *keytab.Keytab
 	cl     *spnego.Client
 	logger *zap.Logger
 }
@@ -56,7 +58,24 @@ func (CertSrvIssuer) CaddyModule() caddy.ModuleInfo {
 // Provision sets up the issuer.
 func (iss *CertSrvIssuer) Provision(ctx caddy.Context) error {
 	iss.logger = ctx.Logger()
-	iss.cl = MakeClient(iss.CertSrvUrl, iss.Username, iss.Password, iss.Realm)
+	var cl *spnego.Client
+	var err error
+	if iss.KeytabFile != "" {
+		kt, err := keytab.Load(iss.KeytabFile)
+		if err != nil {
+			return err
+		}
+		iss.keytab = kt
+		cl, err = MakeClientWithKeytab(iss.CertSrvUrl, iss.Username, iss.keytab, iss.Realm)
+	} else {
+		cl, err = MakeClientWithPassword(iss.CertSrvUrl, iss.Username, iss.Password, iss.Realm)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	iss.cl = cl
 
 	return nil
 }
@@ -66,6 +85,9 @@ func (iss *CertSrvIssuer) Validate() error {
 	iss.logger.Info("My config is\n", zap.Any("config", iss))
 	if !strings.Contains(iss.CertSrvUrl, "//") {
 		return errors.New("certsrv_url must be a valid URL")
+	}
+	if iss.Password == "" && iss.KeytabFile == "" {
+		return errors.New("Provide Password or KeytabFile")
 	}
 	return nil
 }
@@ -111,6 +133,11 @@ func (iss *CertSrvIssuer) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 					return d.ArgErr()
 				}
 				iss.Password = d.Val()
+			case "keytab_path":
+				if !d.NextArg() {
+					return d.ArgErr()
+				}
+				iss.KeytabFile = d.Val()
 			}
 		}
 	}

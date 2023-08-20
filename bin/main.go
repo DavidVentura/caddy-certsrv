@@ -34,7 +34,7 @@ func main() {
 	}
 	*/
 	fmt.Printf("Obtaining a cert for %s by asking %s\n", certFor, certSrv)
-	spnegoCl := certsrv.MakeClient(certSrv, username, password, realm)
+	spnegoCl, err := certsrv.MakeClientWithPassword(certSrv, username, password, realm)
 
 	keyBytes, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

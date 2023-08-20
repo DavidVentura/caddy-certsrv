@@ -17,6 +17,8 @@ package certsrv
 import (
 	"context"
 	"crypto/x509"
+	"errors"
+	"strings"
 
 	"github.com/caddyserver/certmagic"
 	"go.uber.org/zap"
@@ -58,6 +60,15 @@ func (iss *CertSrvIssuer) Provision(ctx caddy.Context) error {
 	return nil
 }
 
+// Validate config
+func (iss *CertSrvIssuer) Validate() error {
+	iss.logger.Info("My config is\n", zap.Any("config", iss))
+	if !strings.Contains(iss.CertSrvUrl, "//") {
+		return errors.New("certsrv_url must be a valid URL")
+	}
+	return nil
+}
+
 // IssuerKey returns the unique issuer key for the
 // confgured CA endpoint.
 func (iss CertSrvIssuer) IssuerKey() string {
@@ -66,6 +77,7 @@ func (iss CertSrvIssuer) IssuerKey() string {
 
 // Issue issues a certificate to satisfy the CSR.
 func (iss CertSrvIssuer) Issue(ctx context.Context, csr *x509.CertificateRequest) (*certmagic.IssuedCertificate, error) {
+	iss.logger.Info("Getting asked to pass a CSR for %s\n", zap.Stringer("Subject", csr.Subject))
 	// TODO: honor cancellation in MakeCert etc
 	cert := MakeCert(iss.cl, iss.CertSrvUrl, csr)
 
@@ -77,6 +89,7 @@ func (iss CertSrvIssuer) Issue(ctx context.Context, csr *x509.CertificateRequest
 
 // Interface guards
 var (
+	_ caddy.Validator   = (*CertSrvIssuer)(nil)
 	_ caddy.Provisioner = (*CertSrvIssuer)(nil)
 	_ certmagic.Issuer  = (*CertSrvIssuer)(nil)
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,6 +13,21 @@ import (
 	"github.com/MarshallWace/go-spnego"
 )
 
+func fetchCert(certSrvUrl string, certUrl string) string {
+	c := &http.Client{
+		Transport: &spnego.Transport{NoCanonicalize: false},
+	}
+	url := fmt.Sprintf("%s/%s", certSrvUrl, certUrl)
+	fmt.Println(url)
+	resp, err := c.Get(url)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("%#v\n", resp)
+	defer resp.Body.Close()
+	cert, err := io.ReadAll(resp.Body)
+	return string(cert)
+}
 func reqCert(csr string, certSrvUrl string) string {
 	data := url.Values{
 		"Mode":        {"newreq"},
@@ -20,10 +36,10 @@ func reqCert(csr string, certSrvUrl string) string {
 	}
 
 	c := &http.Client{
-		Transport: &spnego.Transport{},
+		Transport: &spnego.Transport{NoCanonicalize: false},
 	}
 
-	resp, err := c.PostForm(certSrvUrl, data)
+	resp, err := c.PostForm(fmt.Sprintf("%s/certfnsh.asp", certSrvUrl), data)
 	if err != nil {
 		panic(err)
 	}
@@ -35,6 +51,7 @@ func reqCert(csr string, certSrvUrl string) string {
 	}
 	return link
 }
+
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Printf("Expected 2 args: cert-domain cert-srv\n")
@@ -48,5 +65,8 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("%s\n", string(pem))
-	reqCert(string(pem), certSrv)
+	link := reqCert(string(pem), certSrv)
+	fmt.Printf("%s\n", link)
+	cert := fetchCert(certSrv, link)
+	fmt.Printf("%s\n", cert)
 }

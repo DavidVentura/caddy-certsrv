@@ -21,6 +21,6 @@ func MakeClientWithKeytab(certSrv string, username string, kt *keytab.Keytab, re
 	if err != nil {
 		return nil, err
 	}
-	cl := client.NewClientWithKeytab(username, realm, kt, cfg)
+	cl := client.NewClientWithKeytab(username, realm, kt, cfg, client.DisablePAFXFAST(true))
 	return spnego.NewClient(cl, nil, ""), nil
 }

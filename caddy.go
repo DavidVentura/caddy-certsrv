@@ -149,6 +149,4 @@ var (
 	_ caddy.Validator   = (*CertSrvIssuer)(nil)
 	_ caddy.Provisioner = (*CertSrvIssuer)(nil)
 	_ certmagic.Issuer  = (*CertSrvIssuer)(nil)
-
-// _ provisioner.CertificateModifier = (*customCertLifetime)(nil)
 )

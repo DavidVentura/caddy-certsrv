@@ -11,9 +11,9 @@ xcaddy build --with  github.com/davidventura/caddy-certsrv=.
 Package with
 
 ```bash
-mkdir caddy-1.0
-cp -t caddy-1.0/ caddy caddy.service
-tar czf ~/rpmbuild/SOURCES/caddy-1.0.tar.gz caddy-1.0/
+mkdir caddy-2.7.4
+cp -t caddy-2.7.4/ caddy caddy.service Caddyfile
+tar czf ~/rpmbuild/SOURCES/caddy-2.7.4.tar.gz caddy-2.7.4/
 rpmbuild -ba caddy.spec
 ```
 

@@ -101,8 +101,10 @@ func (iss CertSrvIssuer) IssuerKey() string {
 // Issue issues a certificate to satisfy the CSR.
 func (iss CertSrvIssuer) Issue(ctx context.Context, csr *x509.CertificateRequest) (*certmagic.IssuedCertificate, error) {
 	iss.logger.Info("Getting asked to pass a CSR for %s\n", zap.Stringer("Subject", csr.Subject))
-	// TODO: honor cancellation in MakeCert etc
-	cert := MakeCert(iss.cl, iss.CertSrvUrl, csr)
+	cert, err := MakeCert(iss.cl, iss.CertSrvUrl, csr, ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &certmagic.IssuedCertificate{
 		// The PEM-encoding of DER-encoded ASN.1 data.

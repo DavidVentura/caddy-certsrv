@@ -1,31 +1,37 @@
 package certsrv
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
+	"strings"
 
 	"gopkg.in/jcmturner/gokrb5.v7/spnego"
 )
 
-// FIXME: These request should support a ctx
-
 // Returns a PEM-encoded ceritifcate
-func fetchCert(cl *spnego.Client, certSrvUrl string, certUrl string) string {
+func fetchCert(cl *spnego.Client, certSrvUrl string, certUrl string, ctx context.Context) (string, error) {
 	url := fmt.Sprintf("%s/%s", certSrvUrl, certUrl)
-	resp, err := cl.Get(url)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		panic(err)
+		return "", err
+	}
+	resp, err := cl.Do(req)
+	if err != nil {
+		return "", err
 	}
 	defer resp.Body.Close()
 	cert, err := io.ReadAll(resp.Body)
-	return string(cert)
+	return string(cert), nil
 }
 
 // Returns a PEM-encoded ceritifcate
-func MakeCert(cl *spnego.Client, certSrvUrl string, csr *x509.CertificateRequest) string {
+func MakeCert(cl *spnego.Client, certSrvUrl string, csr *x509.CertificateRequest, ctx context.Context) (string, error) {
 	req := pem.EncodeToMemory(&pem.Block{
 		Type: "CERTIFICATE REQUEST", Bytes: csr.Raw,
 	})
@@ -36,14 +42,23 @@ func MakeCert(cl *spnego.Client, certSrvUrl string, csr *x509.CertificateRequest
 		"CertAttrib":  {"CertificateTemplate:WebServer(PrivateKeyExportable)"},
 	}
 
-	resp, err := cl.PostForm(fmt.Sprintf("%s/certfnsh.asp", certSrvUrl), data)
+	// spnego.Client does not support cancellation
+	body := strings.NewReader(data.Encode())
+	url := fmt.Sprintf("%s/certfnsh.asp", certSrvUrl)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, body)
 	if err != nil {
-		panic(err)
+		return "", err
+	}
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := cl.Do(httpReq)
+	if err != nil {
+		return "", err
 	}
 	defer resp.Body.Close()
 	link, err := parseHTMLResponse(resp.Body)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	return fetchCert(cl, certSrvUrl, link)
+	return fetchCert(cl, certSrvUrl, link, ctx)
 }
